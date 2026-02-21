@@ -65,6 +65,11 @@ model User {
   organizationId        String
   organization          Organization @relation(fields: [organizationId], references: [id])
   
+  // Admin Plugin Fields
+  banned                Boolean?
+  banReason             String?
+  banExpires            DateTime?
+
   // Hierarchy (Self-relation)
   managerId      String?
   manager        User?     @relation("ReportsTo", fields: [managerId], references: [id])
@@ -163,15 +168,18 @@ model Team {
 }
 
 model Session {
-  id        String   @id
-  expiresAt DateTime
-  token     String
-  createdAt DateTime
-  updatedAt DateTime
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime
+  updatedAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Admin Plugin Fields
+  impersonatedBy String?
 
   @@unique([token])
   @@map("session")

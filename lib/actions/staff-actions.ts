@@ -5,6 +5,7 @@ import { auth } from "../auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { hashPassword } from "better-auth/crypto";
 
 const addStaffSchema = z.object({
   name: z.string().min(2),
@@ -28,7 +29,7 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
   const tempPassword = `AmHRIS-${Math.random().toString(36).slice(-8)}!`;
 
   try {
-    const user = await auth.api.signUpEmail({
+    await auth.api.signUpEmail({
       body: {
         email: result.data.email,
         password: tempPassword,
@@ -64,6 +65,10 @@ export async function getStaffList() {
   });
 }
 
+/**
+ * Professional administrative password reset.
+ * Uses Better Auth's official crypto utility to guarantee compatibility.
+ */
 export async function resetStaffPassword(userId: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -73,44 +78,92 @@ export async function resetStaffPassword(userId: string) {
     throw new Error("Unauthorized password reset.");
   }
 
-  // Set the flag back to true
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      requirePasswordChange: true,
-    }
-  });
+  const tempPassword = `AmHRIS-Reset-${Math.random().toString(36).slice(-6)}!`;
 
-  // Note: Better Auth handles the actual password reset via its internal API or email flow.
-  // For this direct reset, we are flagging the user to update it themselves.
-  
-  return { success: true };
+  try {
+    // 1. Generate a valid hash using Better Auth's official crypto utility
+    const hashedPassword = await hashPassword(tempPassword);
+
+    // 2. Update the account table directly via Prisma
+    await prisma.account.updateMany({
+      where: { 
+        userId: userId,
+        providerId: "credential"
+      },
+      data: {
+        password: hashedPassword,
+      }
+    });
+
+    // 3. Set the forced reset flag
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        requirePasswordChange: true,
+      }
+    });
+
+    revalidatePath("/directory");
+    return { success: true, tempPassword };
+  } catch (error: any) {
+    console.error("Reset password error:", error);
+    throw new Error("Failed to reset password. Please try again.");
+  }
 }
 
-export async function completeOnboarding(password: string) {
+export async function deleteStaff(userId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Only admins can delete staff members.");
+  }
+
+  if (session.user.id === userId) {
+    throw new Error("You cannot delete your own account.");
+  }
+
+  try {
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    revalidatePath("/directory");
+    return { success: true };
+  } catch (error) {
+    console.error("Delete staff error:", error);
+    throw new Error("Failed to delete staff member.");
+  }
+}
+
+/**
+ * Finalizes onboarding by setting a permanent password.
+ * Bypasses currentPassword requirement for a better UX during forced resets.
+ */
+export async function completeOnboarding(passwordInput: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
   if (!session) throw new Error("Unauthorized");
 
-  // Since direct hashing is complex outside the Better Auth internal flow,
-  // we will use the most robust way: The Better Auth Server API.
-  // The 'resetPassword' API actually works on the server without a token 
-  // if you provide the userId in certain Better Auth versions, but 
-  // let's use the most compatible method for v1.
-  
   try {
-    // We update the user's password using the Better Auth internal update method
-    // which handles the hashing automatically.
-    await auth.api.updateUser({
-      headers: await headers(),
-      body: {
-        password: password,
+    // 1. Generate a valid hash using Better Auth's official crypto utility
+    const hashedPassword = await hashPassword(passwordInput);
+
+    // 2. Update the account table directly via Prisma
+    await prisma.account.updateMany({
+      where: { 
+        userId: session.user.id,
+        providerId: "credential"
+      },
+      data: {
+        password: hashedPassword,
       }
     });
 
-    // Clear the requirement flag
+    // 3. Clear the requirement flag
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
@@ -122,8 +175,7 @@ export async function completeOnboarding(password: string) {
     return { success: true };
   } catch (error: any) {
     console.error("Onboarding error:", error);
-    const message = error?.message || "Failed to update password. Ensure it's at least 8 characters.";
-    throw new Error(message);
+    throw new Error("Failed to secure account. Please try again.");
   }
 }
 

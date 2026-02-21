@@ -1,10 +1,15 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
 import prisma from "./prisma";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+  plugins: [
+    nextCookies(), 
+    admin()
+  ],
   user: {
     additionalFields: {
       role: {
@@ -40,15 +45,11 @@ export const auth = betterAuth({
     },
   },
   */
-  plugins: [nextCookies()],
   databaseHooks: {
     user: {
       update: {
         after: async (user) => {
-          // If the password was just changed (handled by Better Auth), 
-          // we could potentially clear flags here, but for 'changePassword' 
-          // we'll handle the flag flip in the UI response for now 
-          // to ensure session consistency.
+          // Hooks can be used here for future automated audit trails
         }
       }
     }
