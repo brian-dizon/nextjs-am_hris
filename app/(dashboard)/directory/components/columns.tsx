@@ -8,31 +8,24 @@ import { cn } from "@/lib/utils";
 export const columns: ColumnDef<PrismaUser>[] = [
   {
     accessorKey: "name",
+    sortingFn: (rowA, rowB) => {
+      const nameA = String(rowA.original.name).toLowerCase();
+      const nameB = String(rowB.original.name).toLowerCase();
+      return nameA.localeCompare(nameB);
+    },
     header: ({ column }) => (
       <button
         className="flex items-center gap-2 hover:text-foreground transition-colors"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
       >
-        Name
+        Staff Member
         <ArrowUpDown className="h-4 w-4" />
       </button>
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <User className="h-4 w-4" />
-        </div>
-        <span className="font-medium">{row.getValue("name")}</span>
-      </div>
-    ),
-  },
-  {
-    accessorKey: "email",
-    header: "Email",
-    cell: ({ row }) => (
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Mail className="h-3 w-3" />
-        {row.getValue("email")}
+      <div className="flex flex-col">
+        <span className="font-semibold text-foreground capitalize">{row.getValue("name")}</span>
+        <span className="text-xs text-muted-foreground">{row.original.email}</span>
       </div>
     ),
   },
@@ -47,6 +40,22 @@ export const columns: ColumnDef<PrismaUser>[] = [
           role === "ADMIN" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
         )}>
           {role}
+        </span>
+      );
+    },
+  },
+  {
+    accessorKey: "manager.name",
+    id: "manager_name",
+    header: "Reports To",
+    cell: ({ row }) => {
+      const managerName = (row.original as any).manager?.name;
+      return (
+        <span className={cn(
+          "text-sm font-medium",
+          managerName ? "text-foreground capitalize" : "text-muted-foreground italic"
+        )}>
+          {managerName || "None"}
         </span>
       );
     },

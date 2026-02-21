@@ -11,6 +11,14 @@ const addStaffSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
+  managerId: z.string().optional().nullable(),
+});
+
+const updateStaffSchema = z.object({
+  userId: z.string(),
+  name: z.string().min(2),
+  role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
+  managerId: z.string().optional().nullable(),
 });
 
 export async function addStaff(data: z.infer<typeof addStaffSchema>) {
@@ -29,26 +37,108 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
   const tempPassword = `AmHRIS-${Math.random().toString(36).slice(-8)}!`;
 
   try {
-    await auth.api.signUpEmail({
+    // 1. Create the user via the admin API
+    const result_auth = await auth.api.createUser({
+      headers: await headers(),
       body: {
         email: result.data.email,
         password: tempPassword,
         name: result.data.name,
-        organizationId: session.user.organizationId,
         role: result.data.role,
-        requirePasswordChange: true,
+        data: {
+          organizationId: session.user.organizationId,
+          requirePasswordChange: true,
+        },
+      },
+    });
+
+    if (!result_auth?.user?.id) throw new Error("User creation failed.");
+
+    // 2. Set the managerId directly via Prisma (since createUser data is restricted)
+    if (result.data.managerId) {
+      await prisma.user.update({
+        where: { id: result_auth.user.id },
+        data: {
+          managerId: result.data.managerId,
+        },
+      });
+    }
+
+    revalidatePath("/directory");
+    return { success: true, tempPassword };
+  } catch (error: any) {
+    console.error("Add staff error:", error);
+    const message = error?.message || "Failed to create staff member.";
+    throw new Error(message);
+  }
+}
+
+export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Only admins can update staff members.");
+  }
+
+  const result = updateStaffSchema.safeParse(data);
+  if (!result.success) throw new Error("Invalid input data.");
+
+  try {
+    // Keep updates in Prisma to support app-specific enum roles safely.
+    await prisma.user.update({
+      where: { id: result.data.userId },
+      data: {
+        name: result.data.name,
+        role: result.data.role,
+        managerId: result.data.managerId,
       },
     });
 
     revalidatePath("/directory");
-    return { success: true, tempPassword };
-  } catch (error) {
-    console.error("Add staff error:", error);
-    throw new Error("Failed to create staff member. Email might already be in use.");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Update staff error:", error);
+    throw new Error(error.message || "Failed to update staff member.");
   }
 }
 
 export async function getStaffList() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
+    return [];
+  }
+
+  // Hierarchical Filter: Leaders only see their direct reports
+  const whereClause: any = {
+    organizationId: session.user.organizationId,
+  };
+
+  if (session.user.role === "LEADER") {
+    whereClause.managerId = session.user.id;
+  }
+
+  return await prisma.user.findMany({
+    where: whereClause,
+    include: {
+      manager: {
+        select: {
+          name: true,
+        }
+      }
+    },
+    orderBy: {
+      joinedAt: "desc",
+    },
+  });
+}
+
+export async function getManagers() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -58,9 +148,16 @@ export async function getStaffList() {
   return await prisma.user.findMany({
     where: {
       organizationId: session.user.organizationId,
+      role: {
+        in: ["ADMIN", "LEADER"],
+      },
+    },
+    select: {
+      id: true,
+      name: true,
     },
     orderBy: {
-      joinedAt: "desc",
+      name: "asc",
     },
   });
 }

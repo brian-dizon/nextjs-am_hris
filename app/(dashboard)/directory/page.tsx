@@ -10,15 +10,33 @@ import { useState, useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import AddStaffModal from "./components/add-staff-modal";
 import ResetPasswordModal from "./components/reset-password-modal";
+import EditStaffModal from "./components/edit-staff-modal";
+import { useSession } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Settings2 } from "lucide-react";
 
 export default function DirectoryPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const { data: session, isPending: isSessionLoading } = useSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
+  const [userToEdit, setUserToEdit] = useState<PrismaUser | null>(null);
+
+  const isAdminOrLeader = session?.user?.role === "ADMIN" || session?.user?.role === "LEADER";
+  const isAdmin = session?.user?.role === "ADMIN";
+
+  useEffect(() => {
+    if (!isSessionLoading && !isAdminOrLeader) {
+      router.push("/dashboard");
+    }
+  }, [isAdminOrLeader, isSessionLoading, router]);
 
   const { data: staff, isLoading } = useQuery({
     queryKey: ["staff-list"],
     queryFn: () => getStaffList() as Promise<PrismaUser[]>,
+    enabled: isAdminOrLeader,
   });
 
   const deleteMutation = useMutation({
@@ -39,6 +57,15 @@ export default function DirectoryPage() {
           ...col,
           cell: ({ row }: any) => (
             <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  onClick={() => setUserToEdit(row.original)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/10 border border-transparent hover:border-primary/20"
+                >
+                  <Settings2 className="h-3 w-3" />
+                  Edit
+                </button>
+              )}
               <button
                 onClick={() => setSelectedUser({ id: row.original.id, name: row.original.name })}
                 className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
@@ -46,26 +73,28 @@ export default function DirectoryPage() {
                 <KeyRound className="h-3 w-3" />
                 Reset Pass
               </button>
-              <button
-                onClick={() => {
-                  if (confirm(`Are you sure you want to delete ${row.original.name}?`)) {
-                    deleteMutation.mutate(row.original.id);
-                  }
-                }}
-                className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-destructive transition-all hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
-              >
-                <Trash2 className="h-3 w-3" />
-                Delete
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to delete ${row.original.name}?`)) {
+                      deleteMutation.mutate(row.original.id);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-destructive transition-all hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete
+                </button>
+              )}
             </div>
           ),
         };
       }
       return col;
     });
-  }, [deleteMutation]);
+  }, [deleteMutation, isAdmin]);
 
-  if (isLoading) {
+  if (isLoading || isSessionLoading) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-10 w-48 bg-muted rounded" />
@@ -74,6 +103,8 @@ export default function DirectoryPage() {
     );
   }
 
+  if (!isAdminOrLeader) return null;
+
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between">
@@ -81,13 +112,15 @@ export default function DirectoryPage() {
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Employee Directory</h1>
           <p className="text-muted-foreground mt-1">Manage and view all staff members in your organization.</p>
         </div>
-        <button 
-          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90"
-          onClick={() => setIsModalOpen(true)}
-        >
-          <UserPlus className="h-4 w-4" />
-          Add Employee
-        </button>
+        {isAdmin && (
+          <button 
+            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <UserPlus className="h-4 w-4" />
+            Add Employee
+          </button>
+        )}
       </header>
 
       <DataTable
@@ -105,6 +138,11 @@ export default function DirectoryPage() {
       <ResetPasswordModal 
         user={selectedUser} 
         onClose={() => setSelectedUser(null)} 
+      />
+
+      <EditStaffModal 
+        user={userToEdit} 
+        onClose={() => setUserToEdit(null)} 
       />
     </div>
   );

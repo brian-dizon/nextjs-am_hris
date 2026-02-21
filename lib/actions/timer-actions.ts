@@ -68,6 +68,41 @@ export async function clockOut() {
   return updatedLog;
 }
 
+export async function adminClockOut(userId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session || session.user.role !== "ADMIN") {
+    throw new Error("Only admins can force clock out staff.");
+  }
+
+  // Find the active log for the target user in the same organization
+  const activeLog = await prisma.timeLog.findFirst({
+    where: {
+      userId: userId,
+      organizationId: session.user.organizationId,
+      endTime: null,
+    },
+  });
+
+  if (!activeLog) throw new Error("No active timer found for this user.");
+
+  const endTime = new Date();
+  const duration = Math.floor((endTime.getTime() - activeLog.startTime.getTime()) / 1000);
+
+  const updatedLog = await prisma.timeLog.update({
+    where: { id: activeLog.id },
+    data: {
+      endTime,
+      duration,
+    },
+  });
+
+  revalidatePath("/dashboard");
+  return updatedLog;
+}
+
 export async function getTimeLogs() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -92,22 +127,35 @@ export async function getOrganizationActiveLogs() {
     headers: await headers(),
   });
 
-  // Admin/Leader check: Ensure only authorized users can see all logs
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     return [];
   }
 
+  // Hierarchical Filter: Leaders only see their subordinates
+  const whereClause: any = {
+    organizationId: session.user.organizationId,
+    endTime: null,
+  };
+
+  if (session.user.role === "LEADER") {
+    whereClause.user = {
+      managerId: session.user.id,
+    };
+  }
+
   return await prisma.timeLog.findMany({
-    where: {
-      organizationId: session.user.organizationId,
-      endTime: null,
-    },
+    where: whereClause,
     include: {
       user: {
         select: {
           name: true,
           image: true,
           email: true,
+          manager: {
+            select: {
+              name: true,
+            }
+          }
         },
       },
     },

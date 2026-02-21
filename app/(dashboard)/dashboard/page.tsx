@@ -53,7 +53,7 @@ export default async function DashboardPage() {
       {/* Admin Monitoring Layer */}
       {isAdmin && (
         <section className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-          <AdminLiveFeed />
+          <AdminLiveFeed isAdmin={isAdmin} />
         </section>
       )}
     </div>

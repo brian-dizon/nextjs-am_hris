@@ -1,17 +1,45 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { getOrganizationActiveLogs } from "@/lib/actions/timer-actions";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { getOrganizationActiveLogs, adminClockOut } from "@/lib/actions/timer-actions";
 import { DataTable } from "@/components/ui/data-table";
-import { columns, type AdminTimeLog } from "./admin-live-feed-columns";
+import { getColumns, type AdminTimeLog } from "./admin-live-feed-columns";
 import { Users } from "lucide-react";
+import { useMemo } from "react";
 
-export default function AdminLiveFeed() {
+interface AdminLiveFeedProps {
+  isAdmin: boolean;
+}
+
+export default function AdminLiveFeed({ isAdmin }: AdminLiveFeedProps) {
+  const queryClient = useQueryClient();
+
   const { data: activeLogs, isLoading } = useQuery({
     queryKey: ["admin-active-logs"],
     queryFn: () => getOrganizationActiveLogs() as Promise<AdminTimeLog[]>,
     refetchInterval: 30000, // Refresh every 30 seconds
   });
+
+  const clockOutMutation = useMutation({
+    mutationFn: (userId: string) => adminClockOut(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-active-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["time-logs"] });
+    },
+    onError: (error: any) => {
+      alert(error.message);
+    },
+  });
+
+  const handleClockOut = (userId: string, name: string) => {
+    if (confirm(`Are you sure you want to force clock out ${name}?`)) {
+      clockOutMutation.mutate(userId);
+    }
+  };
+
+  const columns = useMemo(() => 
+    getColumns({ isAdmin, onClockOut: handleClockOut }), 
+  [isAdmin]);
 
   if (isLoading) {
     return (

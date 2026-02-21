@@ -1,18 +1,23 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, User } from "lucide-react";
+import { ArrowUpDown, Square } from "lucide-react";
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 // Types for the Admin Live Feed (includes joined user data)
 export type AdminTimeLog = {
   id: string;
+  userId: string;
   startTime: Date;
   type: string;
   user: {
     name: string;
     image: string | null;
     email: string;
+    manager?: {
+      name: string;
+    } | null;
   };
 };
 
@@ -31,16 +36,26 @@ const LiveDuration = ({ startTime }: { startTime: Date }) => {
   const secs = diff % 60;
 
   return (
-    <span className="font-mono font-bold text-primary animate-pulse">
+    <span className="font-mono font-bold text-primary animate-pulse text-sm">
       {hrs.toString().padStart(2, "0")}:{mins.toString().padStart(2, "0")}:{secs.toString().padStart(2, "0")}
     </span>
   );
 };
 
-export const columns: ColumnDef<AdminTimeLog>[] = [
+interface ColumnProps {
+  isAdmin: boolean;
+  onClockOut: (userId: string, name: string) => void;
+}
+
+export const getColumns = ({ isAdmin, onClockOut }: ColumnProps): ColumnDef<AdminTimeLog>[] => [
   {
     accessorKey: "user.name",
     id: "user_name",
+    sortingFn: (rowA, rowB) => {
+      const nameA = String(rowA.original.user.name).toLowerCase();
+      const nameB = String(rowB.original.user.name).toLowerCase();
+      return nameA.localeCompare(nameB);
+    },
     header: ({ column }) => (
       <button
         className="flex items-center gap-2 hover:text-foreground transition-colors"
@@ -51,16 +66,35 @@ export const columns: ColumnDef<AdminTimeLog>[] = [
       </button>
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <User className="h-4 w-4" />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-medium text-foreground">{row.original.user.name}</span>
-          <span className="text-xs text-muted-foreground">{row.original.user.email}</span>
-        </div>
+      <div className="flex flex-col text-left">
+        <span className="font-semibold text-foreground capitalize">{row.original.user.name}</span>
+        <span className="text-xs text-muted-foreground">{row.original.user.email}</span>
       </div>
     ),
+  },
+  {
+    accessorKey: "user.manager.name",
+    id: "manager_name",
+    header: ({ column }) => (
+      <button
+        className="flex items-center gap-2 hover:text-foreground transition-colors"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Reports To
+        <ArrowUpDown className="h-4 w-4" />
+      </button>
+    ),
+    cell: ({ row }) => {
+      const managerName = row.original.user.manager?.name;
+      return (
+        <span className={cn(
+          "text-sm font-medium",
+          managerName ? "text-foreground capitalize" : "text-muted-foreground italic"
+        )}>
+          {managerName || "None"}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "startTime",
@@ -99,5 +133,21 @@ export const columns: ColumnDef<AdminTimeLog>[] = [
         {row.getValue("type")}
       </span>
     ),
+  },
+  {
+    id: "actions",
+    header: "Actions",
+    cell: ({ row }) => {
+      if (!isAdmin) return null;
+      return (
+        <button
+          onClick={() => onClockOut(row.original.userId, row.original.user.name)}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold text-destructive transition-all hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+        >
+          <Square className="h-3 w-3 fill-current" />
+          Clock Out
+        </button>
+      );
+    },
   },
 ];

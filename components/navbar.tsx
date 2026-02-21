@@ -4,18 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Clock, CalendarDays, Users, UserCircle, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "@/lib/auth-client";
-
-const navItems = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Timesheet", href: "/timesheet", icon: Clock },
-  { name: "Leave", href: "/leave", icon: CalendarDays },
-  { name: "Directory", href: "/directory", icon: Users },
-  { name: "Profile", href: "/profile", icon: UserCircle },
-];
+import { signOut, useSession } from "@/lib/auth-client";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  const userRole = session?.user?.role;
+  const isAdminOrLeader = userRole === "ADMIN" || userRole === "LEADER";
+
+  const navItems = [
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Timesheet", href: "/timesheet", icon: Clock },
+    { name: "Leave", href: "/leave", icon: CalendarDays },
+    { 
+      name: "Directory", 
+      href: "/directory", 
+      icon: Users,
+      hidden: !isAdminOrLeader
+    },
+    { name: "Profile", href: "/profile", icon: UserCircle },
+  ];
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
@@ -30,7 +39,7 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex md:items-center md:gap-1">
-          {navItems.map((item) => {
+          {navItems.filter(item => !item.hidden).map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
