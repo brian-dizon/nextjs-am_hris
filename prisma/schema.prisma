@@ -22,6 +22,17 @@ enum InvitationStatus {
   REVOKED
 }
 
+enum TimeLogStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TimeLogType {
+  WORK
+  BREAK
+}
+
 model Organization {
   id          String   @id @default(cuid())
   name        String
@@ -33,6 +44,7 @@ model Organization {
   users       User[]
   invitations OrganizationInvitation[]
   departments Department[]
+  timeLogs    TimeLog[]
 
   @@map("organization")
 }
@@ -58,9 +70,48 @@ model User {
 
   sessions       Session[]
   accounts       Account[]
+  timeLogs       TimeLog[]
 
   @@unique([email])
   @@map("user")
+}
+
+model TimeLog {
+  id             String        @id @default(cuid())
+  startTime      DateTime      @default(now())
+  endTime        DateTime?
+  duration       Int?          // Store in seconds
+  status         TimeLogStatus @default(APPROVED)
+  type           TimeLogType   @default(WORK)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  corrections    TimeCorrection[]
+
+  @@map("time_log")
+}
+
+model TimeCorrection {
+  id                String        @id @default(cuid())
+  requestedStartTime DateTime?
+  requestedEndTime   DateTime?
+  reason            String
+  status            TimeLogStatus @default(PENDING)
+  processedAt       DateTime?
+  processedById     String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  timeLogId         String
+  timeLog           TimeLog       @relation(fields: [timeLogId], references: [id], onDelete: Cascade)
+
+  @@map("time_correction")
 }
 
 model OrganizationInvitation {
