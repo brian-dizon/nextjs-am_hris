@@ -15,7 +15,8 @@ export default async function authMiddleware(request: NextRequest) {
   );
 
   const isAuthPage = request.nextUrl.pathname.startsWith("/login") || 
-                     request.nextUrl.pathname.startsWith("/setup");
+                     request.nextUrl.pathname.startsWith("/setup") ||
+                     request.nextUrl.pathname.startsWith("/change-password");
 
   if (!session) {
     if (isAuthPage) {
@@ -24,7 +25,12 @@ export default async function authMiddleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (isAuthPage) {
+  // Force Password Change Logic
+  if (session.user.requirePasswordChange && request.nextUrl.pathname !== "/change-password") {
+    return NextResponse.redirect(new URL("/change-password", request.url));
+  }
+
+  if (isAuthPage && !session.user.requirePasswordChange) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -32,5 +38,5 @@ export default async function authMiddleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/setup"],
+  matcher: ["/dashboard/:path*", "/login", "/setup", "/change-password"],
 };

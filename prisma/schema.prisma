@@ -59,9 +59,11 @@ model User {
   updatedAt      DateTime
   
   // HRIS Fields
-  role           UserRole  @default(EMPLOYEE)
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  role                  UserRole  @default(EMPLOYEE)
+  requirePasswordChange Boolean   @default(false)
+  joinedAt              DateTime  @default(now())
+  organizationId        String
+  organization          Organization @relation(fields: [organizationId], references: [id])
   
   // Hierarchy (Self-relation)
   managerId      String?

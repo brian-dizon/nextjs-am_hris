@@ -15,6 +15,10 @@ export const auth = betterAuth({
         type: "string",
         required: true,
       },
+      requirePasswordChange: {
+        type: "boolean",
+        defaultValue: false,
+      },
       managerId: {
         type: "string",
         required: false,
@@ -37,4 +41,16 @@ export const auth = betterAuth({
   },
   */
   plugins: [nextCookies()],
+  databaseHooks: {
+    user: {
+      update: {
+        after: async (user) => {
+          // If the password was just changed (handled by Better Auth), 
+          // we could potentially clear flags here, but for 'changePassword' 
+          // we'll handle the flag flip in the UI response for now 
+          // to ensure session consistency.
+        }
+      }
+    }
+  }
 });
