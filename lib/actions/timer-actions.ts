@@ -86,3 +86,33 @@ export async function getTimeLogs() {
     take: 50, // Limit to 50 for now
   });
 }
+
+export async function getOrganizationActiveLogs() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  // Admin/Leader check: Ensure only authorized users can see all logs
+  if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
+    return [];
+  }
+
+  return await prisma.timeLog.findMany({
+    where: {
+      organizationId: session.user.organizationId,
+      endTime: null,
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+          image: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+}
