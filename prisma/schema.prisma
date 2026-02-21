@@ -88,8 +88,9 @@ model TimeLog {
   startTime      DateTime      @default(now())
   endTime        DateTime?
   duration       Int?          // Store in seconds
-  status         TimeLogStatus @default(APPROVED)
+  status         TimeLogStatus @default(PENDING)
   type           TimeLogType   @default(WORK)
+  isManual       Boolean       @default(false)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

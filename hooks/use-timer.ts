@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { getActiveTimeLog, clockIn, clockOut } from "@/lib/actions/timer-actions";
+import { toast } from "sonner";
 
 export function useTimer() {
   const queryClient = useQueryClient();
@@ -19,6 +20,10 @@ export function useTimer() {
     mutationFn: clockIn,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["active-timer"] });
+      toast.success("Clocked in successfully. Have a great shift!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to clock in.");
     },
   });
 
@@ -28,6 +33,10 @@ export function useTimer() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["active-timer"] });
       setElapsedSeconds(0);
+      toast.success("Clocked out successfully.");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to clock out.");
     },
   });
 

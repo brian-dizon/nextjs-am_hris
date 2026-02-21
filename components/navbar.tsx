@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Clock, CalendarDays, Users, UserCircle, LogOut } from "lucide-react";
+import { LayoutDashboard, Clock, CalendarDays, Users, UserCircle, LogOut, CheckSquare, DollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "@/lib/auth-client";
 
@@ -12,10 +12,23 @@ export default function Navbar() {
 
   const userRole = session?.user?.role;
   const isAdminOrLeader = userRole === "ADMIN" || userRole === "LEADER";
+  const isAdmin = userRole === "ADMIN";
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Timesheet", href: "/timesheet", icon: Clock },
+    { 
+      name: "Approvals", 
+      href: "/approvals", 
+      icon: CheckSquare,
+      hidden: !isAdminOrLeader 
+    },
+    { 
+      name: "Payroll", 
+      href: "/payroll", 
+      icon: DollarSign,
+      hidden: !isAdmin
+    },
     { name: "Leave", href: "/leave", icon: CalendarDays },
     { 
       name: "Directory", 
