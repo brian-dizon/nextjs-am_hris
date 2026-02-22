@@ -19,7 +19,7 @@ const addStaffSchema = z.object({
   address: z.string().optional(),
   dateOfBirth: z.string().optional().nullable(),
   dateHired: z.string().optional().nullable(),
-  regularWorkHours: z.coerce.number().default(8.0),
+  regularWorkHours: z.number(),
 });
 
 type AddStaffInput = z.infer<typeof addStaffSchema>;
@@ -45,9 +45,9 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<AddStaffInput>({
+  } = useForm({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { role: "EMPLOYEE", managerId: "", regularWorkHours: 8.0 },
+    defaultValues: { role: "EMPLOYEE" as const, managerId: "", regularWorkHours: 8.0 },
   });
 
   const mutation = useMutation({
@@ -63,7 +63,7 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     },
   });
 
-  const onSubmit = (data: AddStaffInput) => {
+  const onSubmit = (data: any) => {
     setError(null);
     const formattedData = {
       ...data,

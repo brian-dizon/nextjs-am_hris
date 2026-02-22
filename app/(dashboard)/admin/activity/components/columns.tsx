@@ -2,7 +2,6 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge"; // Check if Badge exists or use simple div
 import { 
   History, 
   User as UserIcon, 

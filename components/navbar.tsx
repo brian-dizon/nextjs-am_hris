@@ -140,7 +140,7 @@ export default function Navbar() {
           <ModeToggle />
           
           <button
-            onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.href = "/login" } })}
+            onClick={() => signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/login" } } })}
             className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-destructive transition-all hover:bg-destructive/10 active:scale-95"
           >
             <LogOut className="h-4 w-4" />

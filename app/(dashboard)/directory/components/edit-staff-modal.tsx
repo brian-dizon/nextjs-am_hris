@@ -25,8 +25,6 @@ const updateStaffSchema = z.object({
   earnedBalance: z.coerce.number().optional(),
 });
 
-type EditStaffInput = z.infer<typeof updateStaffSchema>;
-
 interface EditStaffModalProps {
   user: any | null; // Use any for now to handle the joined leaveBalances
   onClose: () => void;
@@ -46,7 +44,7 @@ export default function EditStaffModal({ user, onClose }: EditStaffModalProps) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<EditStaffInput>({
+  } = useForm({
     resolver: zodResolver(updateStaffSchema),
   });
 
@@ -83,7 +81,7 @@ export default function EditStaffModal({ user, onClose }: EditStaffModalProps) {
     },
   });
 
-  const onSubmit = (data: EditStaffInput) => {
+  const onSubmit = (data: any) => {
     const formattedData = {
       ...data,
       managerId: data.managerId === "" ? null : data.managerId

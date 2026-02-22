@@ -6,7 +6,7 @@ import { getPayrollReport, type PayrollEntry } from "@/lib/actions/payroll-actio
 import { DataTable } from "@/components/ui/data-table";
 import { columns } from "./components/columns";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { DollarSign, Download, Loader2 } from "lucide-react";
+import { DollarSign, Download, Loader2, AlertCircle } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
