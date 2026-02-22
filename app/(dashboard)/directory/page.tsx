@@ -15,6 +15,7 @@ import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Settings2 } from "lucide-react";
+import { toast } from "sonner";
 
 export default function DirectoryPage() {
   const queryClient = useQueryClient();
@@ -43,9 +44,10 @@ export default function DirectoryPage() {
     mutationFn: deleteStaff,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["staff-list"] });
+      toast.success("Staff account deleted.");
     },
-    onError: (error: any) => {
-      alert(error.message);
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Failed to delete staff member.");
     },
   });
 
@@ -75,11 +77,7 @@ export default function DirectoryPage() {
               </button>
               {isAdmin && (
                 <button
-                  onClick={() => {
-                    if (confirm(`Are you sure you want to delete ${row.original.name}?`)) {
-                      deleteMutation.mutate(row.original.id);
-                    }
-                  }}
+                  onClick={() => deleteMutation.mutate(row.original.id)}
                   className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-destructive transition-all hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
                 >
                   <Trash2 className="h-3 w-3" />
