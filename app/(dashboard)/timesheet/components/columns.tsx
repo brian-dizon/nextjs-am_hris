@@ -1,15 +1,16 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, FileEdit } from "lucide-react";
+import { ArrowUpDown, FileEdit, Trash2 } from "lucide-react";
 import { TimeLog } from "@/lib/generated/prisma";
 import { cn } from "@/lib/utils";
 
 interface ColumnProps {
   onRequestCorrection: (log: TimeLog) => void;
+  onDeleteLog: (log: TimeLog) => void;
 }
 
-export const getColumns = ({ onRequestCorrection }: ColumnProps): ColumnDef<TimeLog>[] => [
+export const getColumns = ({ onRequestCorrection, onDeleteLog }: ColumnProps): ColumnDef<TimeLog>[] => [
   {
     accessorKey: "startTime",
     header: ({ column }) => {
@@ -108,13 +109,23 @@ export const getColumns = ({ onRequestCorrection }: ColumnProps): ColumnDef<Time
     id: "actions",
     cell: ({ row }) => {
       return (
-        <button
-          onClick={() => onRequestCorrection(row.original)}
-          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
-        >
-          <FileEdit className="h-3 w-3" />
-          Correct
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onRequestCorrection(row.original)}
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:bg-muted hover:text-foreground border border-transparent hover:border-border"
+          >
+            <FileEdit className="h-3 w-3" />
+            Correct
+          </button>
+          <button
+            onClick={() => onDeleteLog(row.original)}
+            className="inline-flex items-center justify-center rounded-lg p-2 text-destructive transition-all hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+            aria-label="Delete entry"
+            title="Delete entry"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       );
     },
   },

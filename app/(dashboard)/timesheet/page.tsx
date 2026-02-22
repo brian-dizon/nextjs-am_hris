@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getTimeLogs, getTimeStats } from "@/lib/actions/timer-actions";
+import { getTimeLogs, getTimeStats, deleteTimeLog } from "@/lib/actions/timer-actions";
 import { DataTable } from "@/components/ui/data-table";
 import { getColumns } from "./components/columns";
 import { Clock, AlertCircle, CalendarDays, BarChart3 } from "lucide-react";
@@ -10,10 +10,13 @@ import { TimeLog } from "@/lib/generated/prisma";
 import CorrectionModal from "./components/correction-modal";
 import AddEntryModal from "./components/add-entry-modal";
 import { Plus } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export default function TimesheetPage() {
   const [selectedLog, setSelectedLog] = useState<TimeLog | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: logs, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["time-logs"],
@@ -25,13 +28,36 @@ export default function TimesheetPage() {
     queryFn: () => getTimeStats(),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteTimeLog,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["time-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["time-stats"] });
+      toast.success("Timesheet entry deleted.");
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Failed to delete entry.");
+    },
+  });
+
   const formatDuration = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     return `${hrs}h ${mins}m`;
   };
 
-  const columns = useMemo(() => getColumns({ onRequestCorrection: setSelectedLog }), []);
+  const columns = useMemo(
+    () =>
+      getColumns({
+        onRequestCorrection: setSelectedLog,
+        onDeleteLog: (log) => {
+          if (confirm("Delete this timesheet entry? This action cannot be undone.")) {
+            deleteMutation.mutate(log.id);
+          }
+        },
+      }),
+    [deleteMutation]
+  );
 
   if (isLoadingLogs || isLoadingStats) {
     return (

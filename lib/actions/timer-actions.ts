@@ -201,6 +201,30 @@ export async function createManualTimeLog(data: z.infer<typeof manualEntrySchema
   return { success: true };
 }
 
+export async function deleteTimeLog(timeLogId: string) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) throw new Error("Unauthorized");
+
+  const log = await prisma.timeLog.findUnique({
+    where: { id: timeLogId },
+    select: { id: true, userId: true, organizationId: true },
+  });
+
+  if (!log || log.userId !== session.user.id || log.organizationId !== session.user.organizationId) {
+    throw new Error("Entry not found or access denied.");
+  }
+
+  await prisma.timeLog.delete({
+    where: { id: timeLogId },
+  });
+
+  revalidatePath("/timesheet");
+  return { success: true };
+}
+
 export async function getTimeStats() {
   const session = await auth.api.getSession({
     headers: await headers(),
