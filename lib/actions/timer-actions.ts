@@ -4,6 +4,7 @@ import prisma from "../prisma";
 import { auth } from "../auth";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 
 export async function getActiveTimeLog() {
   const session = await auth.api.getSession({
@@ -298,6 +299,35 @@ export async function getOrganizationActiveLogs() {
             }
           }
         },
+      },
+    },
+    orderBy: {
+      startTime: "asc",
+    },
+  });
+}
+
+/**
+ * Fetches the current week's time logs for the user.
+ * Week starts on Monday.
+ */
+export async function getWeeklyTimeLogs() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) return [];
+
+  const now = new Date();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+
+  return await prisma.timeLog.findMany({
+    where: {
+      userId: session.user.id,
+      startTime: {
+        gte: weekStart,
+        lte: weekEnd,
       },
     },
     orderBy: {

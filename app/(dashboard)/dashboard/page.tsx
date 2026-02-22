@@ -3,6 +3,7 @@ import AdminLiveFeed from "@/components/admin-live-feed";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import QuickActionsCard from "./quick-actions-card";
+import WeeklySummary from "./weekly-summary";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -47,6 +48,11 @@ export default async function DashboardPage() {
           <AdminLiveFeed isAdmin={isAdmin} />
         </section>
       )}
+
+      {/* Personal Activity Layer (Weekly Summary) */}
+      <section className="animate-in fade-in slide-in-from-bottom-4 delay-150 duration-700">
+        <WeeklySummary />
+      </section>
     </div>
   );
 }
