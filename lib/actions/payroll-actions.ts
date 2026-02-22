@@ -29,8 +29,6 @@ export async function getPayrollReport(startDate: Date, endDate: Date) {
   const adjustedEndDate = new Date(endDate);
   adjustedEndDate.setHours(23, 59, 59, 999);
 
-  console.log("Fetching payroll from:", startDate, "to:", adjustedEndDate);
-
   const users = await prisma.user.findMany({
     where: {
       organizationId: session.user.organizationId,
@@ -58,8 +56,6 @@ export async function getPayrollReport(startDate: Date, endDate: Date) {
       name: "asc",
     },
   });
-
-  console.log("Users found for payroll:", users.length);
 
   const report: PayrollEntry[] = users.map((user) => {
     let totalSeconds = 0;

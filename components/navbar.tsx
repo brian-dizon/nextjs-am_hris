@@ -13,16 +13,20 @@ import {
   DollarSign,
   ChevronDown,
   ShieldCheck,
-  Activity
+  Activity,
+  Menu,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut, useSession } from "@/lib/auth-client";
 import { useState } from "react";
+import { ModeToggle } from "./mode-toggle";
 
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const userRole = session?.user?.role;
   const isAdminOrLeader = userRole === "ADMIN" || userRole === "LEADER";
@@ -44,6 +48,16 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Mobile Menu Button */}
+        <div className="flex md:hidden mr-2">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground transition-all hover:bg-muted active:scale-95"
+          >
+            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+
         {/* Logo Section */}
         <div className="flex items-center gap-2 group cursor-default">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground font-black text-background text-lg tracking-tighter transition-all group-hover:bg-primary group-hover:text-primary-foreground">
@@ -122,16 +136,71 @@ export default function Navbar() {
         </div>
 
         {/* Action Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <ModeToggle />
+          
           <button
             onClick={() => signOut({ fetchOptions: { onSuccess: () => window.location.href = "/login" } })}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-destructive transition-all hover:bg-destructive/10 active:scale-95"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-destructive transition-all hover:bg-destructive/10 active:scale-95"
           >
             <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">Sign Out</span>
+            <span className="hidden sm:inline text-[13px] tracking-tight">Sign Out</span>
           </button>
         </div>
       </div>
+
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden animate-in slide-in-from-top-4 duration-300 border-t border-border bg-background shadow-xl">
+          <div className="space-y-1 p-4">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.name}
+                </Link>
+              );
+            })}
+
+            {isAdminOrLeader && (
+              <div className="pt-4 mt-4 border-t border-border">
+                <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Admin Tools</div>
+                {adminItems.filter(i => i.show).map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-all",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
   );
+}
 }
