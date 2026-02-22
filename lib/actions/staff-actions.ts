@@ -6,12 +6,20 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { hashPassword } from "better-auth/crypto";
+import { createAuditLog } from "../utils/audit-utils";
 
 const addStaffSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
   managerId: z.string().optional().nullable(),
+  // Extended Profile
+  position: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  address: z.string().optional(),
+  dateOfBirth: z.string().optional().nullable(),
+  dateHired: z.string().optional().nullable(),
+  regularWorkHours: z.number().default(8.0),
 });
 
 const updateStaffSchema = z.object({
@@ -19,6 +27,17 @@ const updateStaffSchema = z.object({
   name: z.string().min(2),
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
   managerId: z.string().optional().nullable(),
+  // Extended Profile
+  position: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  address: z.string().optional(),
+  dateOfBirth: z.string().optional().nullable(),
+  dateHired: z.string().optional().nullable(),
+  regularWorkHours: z.coerce.number().default(8.0),
+  // Leave Credits (Mapping the simplified form structure)
+  vacationBalance: z.coerce.number().optional(),
+  sickBalance: z.coerce.number().optional(),
+  earnedBalance: z.coerce.number().optional(),
 });
 
 export async function addStaff(data: z.infer<typeof addStaffSchema>) {
@@ -33,11 +52,10 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
   const result = addStaffSchema.safeParse(data);
   if (!result.success) throw new Error("Invalid input data.");
 
-  // Generate a random temporary password
   const tempPassword = `AmHRIS-${Math.random().toString(36).slice(-8)}!`;
 
   try {
-    // 1. Create the user via the admin API
+    // 1. Create User via Admin API
     const result_auth = await auth.api.createUser({
       headers: await headers(),
       body: {
@@ -54,22 +72,39 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
 
     if (!result_auth?.user?.id) throw new Error("User creation failed.");
 
-    // 2. Set the managerId directly via Prisma (since createUser data is restricted)
-    if (result.data.managerId) {
-      await prisma.user.update({
-        where: { id: result_auth.user.id },
+    const userId = result_auth.user.id;
+
+    // 2. Perform Transaction for Profile Details & Initial Leave Credits
+    await prisma.$transaction(async (tx) => {
+      // Update the user record with extended info
+      await tx.user.update({
+        where: { id: userId },
         data: {
           managerId: result.data.managerId,
+          position: result.data.position,
+          phoneNumber: result.data.phoneNumber,
+          address: result.data.address,
+          dateOfBirth: result.data.dateOfBirth ? new Date(result.data.dateOfBirth) : null,
+          dateHired: result.data.dateHired ? new Date(result.data.dateHired) : new Date(),
+          regularWorkHours: result.data.regularWorkHours,
         },
       });
-    }
+
+      // Initialize Leave Credits (Wallet)
+      await tx.leaveBalance.createMany({
+        data: [
+          { userId, type: "VACATION", balance: 5.0 },
+          { userId, type: "SICK", balance: 5.0 },
+          { userId, type: "EARNED", balance: 0.0 },
+        ],
+      });
+    });
 
     revalidatePath("/directory");
     return { success: true, tempPassword };
   } catch (error: any) {
     console.error("Add staff error:", error);
-    const message = error?.message || "Failed to create staff member.";
-    throw new Error(message);
+    throw new Error(error?.message || "Failed to create staff member.");
   }
 }
 
@@ -86,18 +121,71 @@ export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
   if (!result.success) throw new Error("Invalid input data.");
 
   try {
-    // Keep updates in Prisma to support app-specific enum roles safely.
-    await prisma.user.update({
+    // Fetch old state for the audit log
+    const oldUser = await prisma.user.findUnique({
       where: { id: result.data.userId },
-      data: {
-        name: result.data.name,
-        role: result.data.role,
-        managerId: result.data.managerId,
-      },
+      include: { leaveBalances: true }
+    });
+
+    // We perform the entire update via Prisma to bypass API-level role restrictions
+    // while maintaining administrative authority.
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: result.data.userId },
+        data: {
+          name: result.data.name,
+          role: result.data.role,
+          managerId: result.data.managerId,
+          position: result.data.position,
+          phoneNumber: result.data.phoneNumber,
+          address: result.data.address,
+          dateOfBirth: result.data.dateOfBirth ? new Date(result.data.dateOfBirth) : null,
+          dateHired: result.data.dateHired ? new Date(result.data.dateHired) : null,
+          regularWorkHours: result.data.regularWorkHours,
+        },
+      });
+
+      // Update Leave Balances via Upsert (Update or Insert if not found)
+      if (result.data.vacationBalance !== undefined) {
+        await tx.leaveBalance.upsert({
+          where: { userId_type: { userId: result.data.userId, type: "VACATION" } },
+          update: { balance: result.data.vacationBalance },
+          create: { userId: result.data.userId, type: "VACATION", balance: result.data.vacationBalance }
+        });
+      }
+      if (result.data.sickBalance !== undefined) {
+        await tx.leaveBalance.upsert({
+          where: { userId_type: { userId: result.data.userId, type: "SICK" } },
+          update: { balance: result.data.sickBalance },
+          create: { userId: result.data.userId, type: "SICK", balance: result.data.sickBalance }
+        });
+      }
+      if (result.data.earnedBalance !== undefined) {
+        await tx.leaveBalance.upsert({
+          where: { userId_type: { userId: result.data.userId, type: "EARNED" } },
+          update: { balance: result.data.earnedBalance },
+          create: { userId: result.data.userId, type: "EARNED", balance: result.data.earnedBalance }
+        });
+      }
+
+      // Record the Audit Log
+      await createAuditLog({
+        userId: session.user.id,
+        userName: session.user.name,
+        userEmail: session.user.email,
+        organizationId: session.user.organizationId,
+        action: "UPDATE_STAFF",
+        entityType: "User",
+        entityId: result.data.userId,
+        oldData: oldUser,
+        newData: result.data, // This contains the new values from the form
+        tx,
+      });
     });
 
     revalidatePath("/directory");
     revalidatePath("/dashboard");
+    revalidatePath("/profile");
     return { success: true };
   } catch (error: any) {
     console.error("Update staff error:", error);
@@ -114,7 +202,6 @@ export async function getStaffList() {
     return [];
   }
 
-  // Hierarchical Filter: Leaders only see their direct reports
   const whereClause: any = {
     organizationId: session.user.organizationId,
   };
@@ -130,7 +217,8 @@ export async function getStaffList() {
         select: {
           name: true,
         }
-      }
+      },
+      leaveBalances: true, // Now includes the wallet
     },
     orderBy: {
       joinedAt: "desc",
@@ -164,7 +252,6 @@ export async function getManagers() {
 
 /**
  * Professional administrative password reset.
- * Uses Better Auth's official crypto utility to guarantee compatibility.
  */
 export async function resetStaffPassword(userId: string) {
   const session = await auth.api.getSession({
@@ -178,10 +265,8 @@ export async function resetStaffPassword(userId: string) {
   const tempPassword = `AmHRIS-Reset-${Math.random().toString(36).slice(-6)}!`;
 
   try {
-    // 1. Generate a valid hash using Better Auth's official crypto utility
     const hashedPassword = await hashPassword(tempPassword);
 
-    // 2. Update the account table directly via Prisma
     await prisma.account.updateMany({
       where: { 
         userId: userId,
@@ -192,7 +277,6 @@ export async function resetStaffPassword(userId: string) {
       }
     });
 
-    // 3. Set the forced reset flag
     await prisma.user.update({
       where: { id: userId },
       data: {
@@ -234,10 +318,6 @@ export async function deleteStaff(userId: string) {
   }
 }
 
-/**
- * Finalizes onboarding by setting a permanent password.
- * Bypasses currentPassword requirement for a better UX during forced resets.
- */
 export async function completeOnboarding(passwordInput: string) {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -246,10 +326,8 @@ export async function completeOnboarding(passwordInput: string) {
   if (!session) throw new Error("Unauthorized");
 
   try {
-    // 1. Generate a valid hash using Better Auth's official crypto utility
     const hashedPassword = await hashPassword(passwordInput);
 
-    // 2. Update the account table directly via Prisma
     await prisma.account.updateMany({
       where: { 
         userId: session.user.id,
@@ -260,7 +338,6 @@ export async function completeOnboarding(passwordInput: string) {
       }
     });
 
-    // 3. Clear the requirement flag
     await prisma.user.update({
       where: { id: session.user.id },
       data: {

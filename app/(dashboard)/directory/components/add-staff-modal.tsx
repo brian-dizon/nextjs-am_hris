@@ -14,6 +14,12 @@ const addStaffSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
   managerId: z.string().optional().nullable(),
+  position: z.string().optional(),
+  phoneNumber: z.string().optional(),
+  address: z.string().optional(),
+  dateOfBirth: z.string().optional().nullable(),
+  dateHired: z.string().optional().nullable(),
+  regularWorkHours: z.coerce.number().default(8.0),
 });
 
 type AddStaffInput = z.infer<typeof addStaffSchema>;
@@ -41,7 +47,7 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     formState: { errors },
   } = useForm<AddStaffInput>({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { role: "EMPLOYEE", managerId: "" },
+    defaultValues: { role: "EMPLOYEE", managerId: "", regularWorkHours: 8.0 },
   });
 
   const mutation = useMutation({
@@ -59,7 +65,6 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
 
   const onSubmit = (data: AddStaffInput) => {
     setError(null);
-    // Convert empty string to null for optional managerId
     const formattedData = {
       ...data,
       managerId: data.managerId === "" ? null : data.managerId
@@ -76,9 +81,9 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-        <div className="relative rounded-2xl border border-border bg-card p-8 shadow-xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="relative rounded-2xl border border-border bg-card p-8 shadow-xl max-h-[90vh] overflow-y-auto">
           <button
             onClick={handleClose}
             className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
@@ -91,7 +96,7 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold tracking-tight">Add Staff</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Provision a new account for your organization.
+                  Provision a new account and profile for your organization.
                 </p>
               </div>
 
@@ -102,70 +107,140 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Full Name</label>
-                  <input
-                    {...register("name")}
-                    className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="John Doe"
-                  />
-                  {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
-                </div>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Basic Identity</h3>
+                    <div>
+                      <label className="text-sm font-medium">Full Name</label>
+                      <input
+                        {...register("name")}
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="John Doe"
+                      />
+                      {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
+                    </div>
 
-                <div>
-                  <label className="text-sm font-medium">Email Address</label>
-                  <input
-                    {...register("email")}
-                    type="email"
-                    className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                    placeholder="john@company.com"
-                  />
-                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
-                </div>
+                    <div>
+                      <label className="text-sm font-medium">Email Address</label>
+                      <input
+                        {...register("email")}
+                        type="email"
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="john@company.com"
+                      />
+                      {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Role</label>
-                    <div className="relative mt-1">
-                      <select
-                        {...register("role")}
-                        className="block w-full rounded-lg border border-border bg-background py-2 pl-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none"
-                      >
-                        <option value="EMPLOYEE">Employee</option>
-                        <option value="LEADER">Team Leader</option>
-                        <option value="ADMIN">Administrator</option>
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Phone Number</label>
+                      <input
+                        {...register("phoneNumber")}
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="+1 234 567 890"
+                      />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium">Reports To</label>
-                    <div className="relative mt-1">
-                      <select
-                        {...register("managerId")}
-                        disabled={isLoadingManagers}
-                        className="block w-full rounded-lg border border-border bg-background py-2 pl-3 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none disabled:opacity-50"
-                      >
-                        <option value="">No Manager</option>
-                        {managers?.map((mgr) => (
-                          <option key={mgr.id} value={mgr.id}>
-                            {mgr.name}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                  {/* Work Details */}
+                  <div className="space-y-4">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Employment Details</h3>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Position / Title</label>
+                      <input
+                        {...register("position")}
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Senior Developer"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium">Role</label>
+                        <select
+                          {...register("role")}
+                          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none"
+                        >
+                          <option value="EMPLOYEE">Employee</option>
+                          <option value="LEADER">Team Leader</option>
+                          <option value="ADMIN">Administrator</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-medium">Reports To</label>
+                        <select
+                          {...register("managerId")}
+                          disabled={isLoadingManagers}
+                          className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none disabled:opacity-50"
+                        >
+                          <option value="">No Manager</option>
+                          {managers?.map((mgr) => (
+                            <option key={mgr.id} value={mgr.id}>
+                              {mgr.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Regular Work Hours (Day)</label>
+                      <input
+                        {...register("regularWorkHours")}
+                        type="number"
+                        step="0.5"
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
                     </div>
                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground border-b border-border pb-1">Personal & Contract</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Date of Birth</label>
+                      <input
+                        type="date"
+                        {...register("dateOfBirth")}
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Date Hired</label>
+                      <input
+                        type="date"
+                        {...register("dateHired")}
+                        className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground">Home Address</label>
+                    <textarea
+                      {...register("address")}
+                      rows={2}
+                      className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                      placeholder="123 Main St, City, Country"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 rounded-xl bg-blue-50 p-4 border border-blue-100">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <p className="text-xs text-blue-700 font-medium">
+                    New staff will automatically be granted 5 Vacation and 5 Sick days.
+                  </p>
                 </div>
 
                 <button
                   type="submit"
                   disabled={mutation.isPending}
-                  className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 disabled:opacity-50 mt-2"
+                  className="w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:bg-primary/90 disabled:opacity-50 mt-2"
                 >
-                  {mutation.isPending ? "Creating account..." : "Create Staff Member"}
+                  {mutation.isPending ? "Initializing Records..." : "Provision Staff Account"}
                 </button>
               </form>
             </>

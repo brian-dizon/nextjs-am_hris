@@ -2,6 +2,7 @@ import TimerCard from "@/components/timer-card";
 import AdminLiveFeed from "@/components/admin-live-feed";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import QuickActionsCard from "./quick-actions-card";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -37,17 +38,7 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-          <h2 className="font-semibold text-lg">Quick Actions</h2>
-          <div className="mt-4 flex flex-col gap-2">
-            <button className="w-full rounded-lg bg-primary/10 px-4 py-2 text-sm font-medium text-primary text-left transition-all hover:bg-primary/20">
-              Request Leave
-            </button>
-            <button className="w-full rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground text-left transition-all hover:bg-muted/80">
-              Update Profile
-            </button>
-          </div>
-        </div>
+        <QuickActionsCard />
       </div>
 
       {/* Admin Monitoring Layer */}

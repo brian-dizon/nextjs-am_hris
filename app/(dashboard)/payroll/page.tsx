@@ -13,6 +13,7 @@ import { useEffect } from "react";
 import { DateRange } from "react-day-picker";
 import { startOfMonth, endOfMonth } from "date-fns";
 import { toast } from "sonner";
+import { exportPayrollToCSV } from "@/lib/utils/export-utils";
 
 export default function PayrollPage() {
   const router = useRouter();
@@ -38,7 +39,13 @@ export default function PayrollPage() {
   });
 
   const handleExport = () => {
-    toast.info("Export functionality (CSV/PDF) coming in Milestone 5.2!");
+    if (!report || !dateRange?.from || !dateRange?.to) {
+      toast.error("No data available to export.");
+      return;
+    }
+    
+    exportPayrollToCSV(report, dateRange.from, dateRange.to);
+    toast.success("Payroll report downloaded.");
   };
 
   if (isSessionLoading) {

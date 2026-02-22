@@ -59,6 +59,7 @@ export function DateRangePicker({
         <PopoverTrigger asChild>
           <Button
             id="date"
+            type="button"
             variant={"outline"}
             className={cn(
               "w-[280px] justify-start text-left font-normal rounded-xl border-border h-10 shadow-sm",
@@ -80,7 +81,7 @@ export function DateRangePicker({
             <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0 flex flex-col md:flex-row rounded-2xl overflow-hidden" align="end">
+        <PopoverContent className="z-[120] w-auto flex-col overflow-hidden rounded-2xl p-0 md:flex-row" align="end">
           {/* Sidebar Shortcuts */}
           <div className="flex flex-col gap-1 border-b md:border-b-0 md:border-r border-border p-3 bg-muted/20 min-w-[140px]">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 mb-1">Presets</p>

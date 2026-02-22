@@ -31,6 +31,21 @@ enum TimeLogStatus {
 enum TimeLogType {
   WORK
   BREAK
+  LEAVE
+}
+
+enum LeaveType {
+  VACATION
+  SICK
+  EARNED
+  EMERGENCY // Added per original plan
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }
 
 model Organization {
@@ -45,6 +60,8 @@ model Organization {
   invitations OrganizationInvitation[]
   departments Department[]
   timeLogs    TimeLog[]
+  leaveRequests LeaveRequest[]
+  auditLogs   AuditLog[]
 
   @@map("organization")
 }
@@ -62,6 +79,15 @@ model User {
   role                  UserRole  @default(EMPLOYEE)
   requirePasswordChange Boolean   @default(false)
   joinedAt              DateTime  @default(now())
+  
+  // Profile Details
+  address               String?
+  phoneNumber           String?
+  dateOfBirth           DateTime?
+  position              String?
+  dateHired             DateTime? @default(now())
+  regularWorkHours      Float     @default(8.0)
+  
   organizationId        String
   organization          Organization @relation(fields: [organizationId], references: [id])
   
@@ -78,9 +104,53 @@ model User {
   sessions       Session[]
   accounts       Account[]
   timeLogs       TimeLog[]
+  leaveBalances  LeaveBalance[]
+  leaveRequests  LeaveRequest[]
+  processedLeaveRequests LeaveRequest[] @relation("ProcessedBy")
+  
+  processedTimeLogs      TimeLog[]      @relation("TimeLogProcessedBy")
+  auditLogs              AuditLog[]
 
   @@unique([email])
   @@map("user")
+}
+
+model LeaveBalance {
+  id             String    @id @default(cuid())
+  type           LeaveType
+  balance        Float     @default(0.0)
+  updatedAt      DateTime  @updatedAt
+
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@map("leave_balance")
+}
+
+model LeaveRequest {
+  id             String      @id @default(cuid())
+  type           LeaveType
+  startDate      DateTime
+  endDate        DateTime
+  netDays        Float       // Number of working days requested
+  reason         String?
+  status         LeaveStatus @default(PENDING)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  userId         String
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Manager who approved/rejected
+  processedById  String?
+  processedBy    User?       @relation("ProcessedBy", fields: [processedById], references: [id])
+  processedAt    DateTime?
+
+  @@map("leave_request")
 }
 
 model TimeLog {
@@ -99,6 +169,11 @@ model TimeLog {
   
   organizationId String
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Manager who approved/rejected
+  processedById  String?
+  processedBy    User?         @relation("TimeLogProcessedBy", fields: [processedById], references: [id])
+  processedAt    DateTime?
 
   corrections    TimeCorrection[]
 
@@ -214,4 +289,25 @@ model Verification {
   updatedAt  DateTime?
 
   @@map("verification")
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String?  // Actor ID (optional to preserve log after deletion)
+  userName       String   // Captured at time of action
+  userEmail      String   // Captured at time of action
+  action         String   // e.g., "UPDATE_SALARY", "DELETE_STAFF"
+  entityType     String   // e.g., "User", "LeaveBalance"
+  entityId       String?  // ID of the changed record
+  oldData        Json?    // State BEFORE
+  newData        Json?    // State AFTER
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("audit_log")
 }

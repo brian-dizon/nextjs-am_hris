@@ -67,6 +67,18 @@ export const columns: ColumnDef<PayrollEntry>[] = [
     ),
   },
   {
+    accessorKey: "leaveSeconds",
+    header: "Leave Hours",
+    cell: ({ row }) => (
+      <span className={cn(
+        "text-sm tabular-nums",
+        row.original.leaveSeconds > 0 ? "text-emerald-600 font-medium" : "text-muted-foreground"
+      )}>
+        {formatDuration(row.original.leaveSeconds)}
+      </span>
+    ),
+  },
+  {
     accessorKey: "totalSeconds",
     header: ({ column }) => (
       <button

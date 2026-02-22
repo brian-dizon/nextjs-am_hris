@@ -12,6 +12,7 @@ export type PayrollEntry = {
   totalSeconds: number;
   autoSeconds: number;   // From standard timer
   manualSeconds: number; // From manual entries
+  leaveSeconds: number;  // From approved leave
   pendingCount: number;
   status: "READY" | "INCOMPLETE";
 };
@@ -49,6 +50,7 @@ export async function getPayrollReport(startDate: Date, endDate: Date) {
           duration: true,
           status: true,
           isManual: true,
+          type: true,
         },
       },
     },
@@ -63,13 +65,16 @@ export async function getPayrollReport(startDate: Date, endDate: Date) {
     let totalSeconds = 0;
     let autoSeconds = 0;
     let manualSeconds = 0;
+    let leaveSeconds = 0;
     let pendingCount = 0;
 
     user.timeLogs.forEach((log) => {
       if (log.status === "APPROVED" && log.duration) {
         totalSeconds += log.duration;
         
-        if (log.isManual) {
+        if (log.type === "LEAVE") {
+          leaveSeconds += log.duration;
+        } else if (log.isManual) {
           manualSeconds += log.duration;
         } else {
           autoSeconds += log.duration;
@@ -87,6 +92,7 @@ export async function getPayrollReport(startDate: Date, endDate: Date) {
       totalSeconds,
       autoSeconds,
       manualSeconds,
+      leaveSeconds,
       pendingCount,
       status: pendingCount > 0 ? "INCOMPLETE" : "READY",
     };
