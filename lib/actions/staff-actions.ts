@@ -19,7 +19,7 @@ const addStaffSchema = z.object({
   address: z.string().optional(),
   dateOfBirth: z.string().optional().nullable(),
   dateHired: z.string().optional().nullable(),
-  regularWorkHours: z.number().default(8.0),
+  regularWorkHours: z.coerce.number().default(8.0),
 });
 
 const updateStaffSchema = z.object({

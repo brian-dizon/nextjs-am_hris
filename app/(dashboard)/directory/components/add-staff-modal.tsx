@@ -6,8 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addStaff, getManagers } from "@/lib/actions/staff-actions";
-import { X, CheckCircle2, Copy, AlertCircle, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { X, CheckCircle2, Copy, AlertCircle } from "lucide-react";
 
 const addStaffSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -19,7 +18,7 @@ const addStaffSchema = z.object({
   address: z.string().optional(),
   dateOfBirth: z.string().optional().nullable(),
   dateHired: z.string().optional().nullable(),
-  regularWorkHours: z.number(),
+  regularWorkHours: z.coerce.number().default(8.0),
 });
 
 type AddStaffInput = z.infer<typeof addStaffSchema>;
@@ -45,7 +44,7 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm({
+  } = useForm<AddStaffInput>({
     resolver: zodResolver(addStaffSchema),
     defaultValues: { role: "EMPLOYEE" as const, managerId: "", regularWorkHours: 8.0 },
   });
@@ -58,12 +57,12 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
       queryClient.invalidateQueries({ queryKey: ["managers-list"] });
       reset();
     },
-    onError: (err: any) => {
-      setError(err.message || "Something went wrong.");
+    onError: (err: unknown) => {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     },
   });
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: AddStaffInput) => {
     setError(null);
     const formattedData = {
       ...data,
@@ -188,11 +187,12 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
                     <div>
                       <label className="text-sm font-medium text-foreground">Regular Work Hours (Day)</label>
                       <input
-                        {...register("regularWorkHours")}
+                        {...register("regularWorkHours", { valueAsNumber: true })}
                         type="number"
                         step="0.5"
                         className="mt-1 block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                       />
+                      {errors.regularWorkHours && <p className="mt-1 text-xs text-destructive">{errors.regularWorkHours.message}</p>}
                     </div>
                   </div>
                 </div>
