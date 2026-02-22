@@ -14,6 +14,16 @@ const getBaseUrl = () => {
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: getBaseUrl(),
+  advanced: {
+    crossSubDomainCookie: {
+      enabled: true,
+    },
+  },
+  trustedOrigins: [
+    "http://localhost:3000",
+    process.env.BETTER_AUTH_URL || "",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+  ].filter(Boolean),
   plugins: [
     nextCookies(), 
     admin({
