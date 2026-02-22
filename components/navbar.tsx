@@ -45,11 +45,14 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo Section */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">
+        <div className="flex items-center gap-2 group cursor-default">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-foreground font-black text-background text-lg tracking-tighter transition-all group-hover:bg-primary group-hover:text-primary-foreground">
             Am
           </div>
-          <span className="text-xl font-bold tracking-tight">HRIS</span>
+          <div className="flex flex-col leading-none">
+            <span className="text-xl font-black tracking-tighter text-foreground">HRIS</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground opacity-50">Pulse</span>
+          </div>
         </div>
 
         {/* Desktop Navigation */}
