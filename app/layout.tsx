@@ -27,6 +27,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {process.env.DATABASE_URL && (
+          <link rel="dns-prefetch" href={new URL(process.env.DATABASE_URL).hostname} />
+        )}
+        {process.env.BETTER_AUTH_URL && (
+          <link rel="preconnect" href={new URL(process.env.BETTER_AUTH_URL).origin} />
+        )}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
