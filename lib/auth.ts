@@ -4,6 +4,8 @@ import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins";
 import { adminAc, userAc } from "better-auth/plugins/admin/access";
 import prisma from "./prisma";
+import { cache } from "react";
+import { headers } from "next/headers";
 
 const getBaseUrl = () => {
   if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
@@ -80,4 +82,10 @@ export const auth = betterAuth({
       }
     }
   }
+});
+
+export const getCachedSession = cache(async () => {
+  return await auth.api.getSession({
+    headers: await headers(),
+  });
 });

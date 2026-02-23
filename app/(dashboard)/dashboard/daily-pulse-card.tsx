@@ -1,9 +1,5 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Sun, CloudSun, Moon, Quote } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const QUOTES = [
   { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
@@ -17,23 +13,15 @@ const QUOTES = [
 ];
 
 export default function DailyPulseCard({ userName }: { userName: string }) {
-  const [greeting, setGreeting] = useState("");
-  const [quote, setQuote] = useState(QUOTES[0]);
-  const [mounted, setMounted] = useState(false);
+  const now = new Date();
+  const hour = now.getHours();
+  let greeting = "Good Evening";
+  if (hour < 12) greeting = "Good Morning";
+  else if (hour < 18) greeting = "Good Afternoon";
 
-  useEffect(() => {
-    setMounted(true);
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting("Good Morning");
-    else if (hour < 18) setGreeting("Good Afternoon");
-    else setGreeting("Good Evening");
-
-    // Select a quote based on the day of the year for "Daily" consistency
-    const dayOfYear = Math.floor((new Date().getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-    setQuote(QUOTES[dayOfYear % QUOTES.length]);
-  }, []);
-
-  if (!mounted) return <div className="h-40 w-full animate-pulse bg-muted rounded-2xl" />;
+  // Select a quote based on the day of the year for "Daily" consistency
+  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const quote = QUOTES[dayOfYear % QUOTES.length];
 
   const Icon = greeting === "Good Morning" ? Sun : greeting === "Good Afternoon" ? CloudSun : Moon;
 

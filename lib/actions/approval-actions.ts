@@ -3,7 +3,7 @@
 import prisma from "../prisma";
 import { auth } from "../auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { LeaveStatus } from "@/lib/generated/prisma";
 import { createAuditLog } from "../utils/audit-utils";
 import { addDays, isWeekend, startOfDay, addHours, differenceInCalendarDays } from "date-fns";
@@ -21,104 +21,113 @@ export async function getPendingApprovals() {
   const isLeader = session.user.role === "LEADER";
   const userId = session.user.id;
 
-  // Define common WHERE clause for filtering by organization and manager
-  const commonWhere = isLeader ? { user: { managerId: userId } } : {};
+  return await unstable_cache(
+    async () => {
+      // Define common WHERE clause for filtering by organization and manager
+      const commonWhere = isLeader ? { user: { managerId: userId } } : {};
 
-  // 1. Fetch Pending Time Corrections
-  const corrections = await prisma.timeCorrection.findMany({
-    where: {
-      status: "PENDING",
-      timeLog: {
-        organizationId: orgId,
-        ...commonWhere,
-      },
-    },
-    include: {
-      timeLog: {
+      // 1. Fetch Pending Time Corrections
+      const corrections = await prisma.timeCorrection.findMany({
+        where: {
+          status: "PENDING",
+          timeLog: {
+            organizationId: orgId,
+            ...commonWhere,
+          },
+        },
+        include: {
+          timeLog: {
+            include: {
+              user: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // 2. Fetch Pending TimeLogs (Manual Entries)
+      const pendingLogs = await prisma.timeLog.findMany({
+        where: {
+          status: "PENDING",
+          organizationId: orgId,
+          ...commonWhere,
+          // Exclude logs that already have a pending correction to avoid duplicates
+          corrections: {
+            none: { status: "PENDING" }
+          }
+        },
         include: {
           user: { select: { id: true, name: true, email: true } },
         },
-      },
+        orderBy: { createdAt: "desc" },
+      });
+
+      // 3. Fetch Pending Leave Requests
+      const leaveRequests = await prisma.leaveRequest.findMany({
+        where: {
+          status: LeaveStatus.PENDING,
+          organizationId: orgId,
+          ...commonWhere,
+        },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+
+      // 4. Unify the structure
+      const unifiedCorrections = corrections.map(c => ({
+        id: c.id,
+        type: "CORRECTION",
+        reason: c.reason || "", // Provide default if null
+        requestedStartTime: c.requestedStartTime,
+        requestedEndTime: c.requestedEndTime,
+        createdAt: c.createdAt,
+        timeLog: c.timeLog,
+        userId: c.timeLog.user.id,
+        userName: c.timeLog.user.name,
+        userEmail: c.timeLog.user.email,
+      }));
+
+      const unifiedLogs = pendingLogs.map(l => ({
+        id: l.id, // Use Log ID as the "Request ID" for approval
+        type: "MANUAL_ENTRY",
+        reason: "Manual Entry Approval",
+        requestedStartTime: l.startTime,
+        requestedEndTime: l.endTime,
+        createdAt: l.createdAt,
+        timeLog: l, // Pass itself as the "timeLog" context
+        userId: l.user.id,
+        userName: l.user.name,
+        userEmail: l.user.email,
+      }));
+
+      const unifiedLeaveRequests = leaveRequests.map(lr => ({
+        id: lr.id,
+        type: "LEAVE_REQUEST",
+        reason: lr.reason || "",
+        startDate: lr.startDate,
+        endDate: lr.endDate,
+        leaveType: lr.type,
+        netDays: lr.netDays,
+        createdAt: lr.createdAt,
+        userId: lr.user.id,
+        userName: lr.user.name,
+        userEmail: lr.user.email,
+      }));
+
+
+      return [...unifiedCorrections, ...unifiedLogs, ...unifiedLeaveRequests].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
     },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // 2. Fetch Pending TimeLogs (Manual Entries)
-  const pendingLogs = await prisma.timeLog.findMany({
-    where: {
-      status: "PENDING",
-      organizationId: orgId,
-      ...commonWhere,
-      // Exclude logs that already have a pending correction to avoid duplicates
-      corrections: {
-        none: { status: "PENDING" }
-      }
-    },
-    include: {
-      user: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  // 3. Fetch Pending Leave Requests
-  const leaveRequests = await prisma.leaveRequest.findMany({
-    where: {
-      status: LeaveStatus.PENDING,
-      organizationId: orgId,
-      ...commonWhere,
-    },
-    include: {
-      user: { select: { id: true, name: true, email: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-
-  // 4. Unify the structure
-  const unifiedCorrections = corrections.map(c => ({
-    id: c.id,
-    type: "CORRECTION",
-    reason: c.reason || "", // Provide default if null
-    requestedStartTime: c.requestedStartTime,
-    requestedEndTime: c.requestedEndTime,
-    createdAt: c.createdAt,
-    timeLog: c.timeLog,
-    userId: c.timeLog.user.id,
-    userName: c.timeLog.user.name,
-    userEmail: c.timeLog.user.email,
-  }));
-
-  const unifiedLogs = pendingLogs.map(l => ({
-    id: l.id, // Use Log ID as the "Request ID" for approval
-    type: "MANUAL_ENTRY",
-    reason: "Manual Entry Approval",
-    requestedStartTime: l.startTime,
-    requestedEndTime: l.endTime,
-    createdAt: l.createdAt,
-    timeLog: l, // Pass itself as the "timeLog" context
-    userId: l.user.id,
-    userName: l.user.name,
-    userEmail: l.user.email,
-  }));
-
-  const unifiedLeaveRequests = leaveRequests.map(lr => ({
-    id: lr.id,
-    type: "LEAVE_REQUEST",
-    reason: lr.reason || "",
-    startDate: lr.startDate,
-    endDate: lr.endDate,
-    leaveType: lr.type,
-    netDays: lr.netDays,
-    createdAt: lr.createdAt,
-    userId: lr.user.id,
-    userName: lr.user.name,
-    userEmail: lr.user.email,
-  }));
-
-
-  return [...unifiedCorrections, ...unifiedLogs, ...unifiedLeaveRequests].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+    [`pending-approvals-${orgId}-${userId}`],
+    {
+      tags: [`pending-approvals-${orgId}`],
+      revalidate: 3600,
+    }
+  )();
 }
 
 export async function approveRequest(requestId: string, type: string) {
@@ -216,6 +225,7 @@ export async function approveRequest(requestId: string, type: string) {
     revalidatePath("/approvals");
     revalidatePath("/profile"); // To update user's leave balance display
     revalidatePath("/dashboard"); // For leave quick actions
+    revalidateTag(`pending-approvals-${session.user.organizationId}`);
     return { success: true };
   }
 
@@ -239,6 +249,7 @@ export async function approveRequest(requestId: string, type: string) {
 
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
+    revalidateTag(`pending-approvals-${session.user.organizationId}`);
     return { success: true };
   }
 
@@ -298,6 +309,7 @@ export async function approveRequest(requestId: string, type: string) {
 
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
+    revalidateTag(`pending-approvals-${session.user.organizationId}`);
     return { success: true };
   }
 
@@ -347,9 +359,11 @@ export async function rejectRequest(requestId: string, type: string) {
     organizationId: session.user.organizationId,
     action: `REJECT_${type}`,
     entityType: type === "LEAVE_REQUEST" ? "LeaveRequest" : "TimeLog",
-    entityId: requestId,
-  });
-
-  revalidatePath("/approvals");
-  return { success: true };
-}
+        entityId: requestId,
+      });
+    
+      revalidatePath("/approvals");
+      revalidateTag(`pending-approvals-${session.user.organizationId}`);
+      return { success: true };
+    }
+    

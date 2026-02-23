@@ -3,7 +3,7 @@
 import prisma from "../prisma";
 import { auth } from "../auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { z } from "zod";
 import { hashPassword } from "better-auth/crypto";
 import { createAuditLog } from "../utils/audit-utils";
@@ -101,6 +101,7 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
     });
 
     revalidatePath("/directory");
+    revalidateTag(`org-staff-${session.user.organizationId}`);
     return { success: true, tempPassword };
   } catch (error: any) {
     console.error("Add staff error:", error);
@@ -186,6 +187,7 @@ export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
     revalidatePath("/directory");
     revalidatePath("/dashboard");
     revalidatePath("/profile");
+    revalidateTag(`org-staff-${session.user.organizationId}`);
     return { success: true };
   } catch (error: any) {
     console.error("Update staff error:", error);
@@ -202,28 +204,41 @@ export async function getStaffList() {
     return [];
   }
 
-  const whereClause: any = {
-    organizationId: session.user.organizationId,
-  };
+  const orgId = session.user.organizationId;
+  const isLeader = session.user.role === "LEADER";
+  const userId = session.user.id;
 
-  if (session.user.role === "LEADER") {
-    whereClause.managerId = session.user.id;
-  }
+  return await unstable_cache(
+    async () => {
+      const whereClause: any = {
+        organizationId: orgId,
+      };
 
-  return await prisma.user.findMany({
-    where: whereClause,
-    include: {
-      manager: {
-        select: {
-          name: true,
-        }
-      },
-      leaveBalances: true, // Now includes the wallet
+      if (isLeader) {
+        whereClause.managerId = userId;
+      }
+
+      return await prisma.user.findMany({
+        where: whereClause,
+        include: {
+          manager: {
+            select: {
+              name: true,
+            }
+          },
+          leaveBalances: true, // Now includes the wallet
+        },
+        orderBy: {
+          joinedAt: "desc",
+        },
+      });
     },
-    orderBy: {
-      joinedAt: "desc",
-    },
-  });
+    [`org-staff-list-${orgId}-${userId}`],
+    {
+      tags: [`org-staff-${orgId}`],
+      revalidate: 3600,
+    }
+  )();
 }
 
 export async function getManagers() {
@@ -233,21 +248,32 @@ export async function getManagers() {
 
   if (!session) return [];
 
-  return await prisma.user.findMany({
-    where: {
-      organizationId: session.user.organizationId,
-      role: {
-        in: ["ADMIN", "LEADER"],
-      },
+  const orgId = session.user.organizationId;
+
+  return await unstable_cache(
+    async () => {
+      return await prisma.user.findMany({
+        where: {
+          organizationId: orgId,
+          role: {
+            in: ["ADMIN", "LEADER"],
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
+      });
     },
-    select: {
-      id: true,
-      name: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
-  });
+    [`org-managers-${orgId}`],
+    {
+      tags: [`org-staff-${orgId}`],
+      revalidate: 3600,
+    }
+  )();
 }
 
 /**
@@ -285,6 +311,7 @@ export async function resetStaffPassword(userId: string) {
     });
 
     revalidatePath("/directory");
+    revalidateTag(`org-staff-${session.user.organizationId}`);
     return { success: true, tempPassword };
   } catch (error: any) {
     console.error("Reset password error:", error);
@@ -311,6 +338,7 @@ export async function deleteStaff(userId: string) {
     });
 
     revalidatePath("/directory");
+    revalidateTag(`org-staff-${session.user.organizationId}`);
     return { success: true };
   } catch (error) {
     console.error("Delete staff error:", error);

@@ -3,8 +3,9 @@
 import prisma from "../prisma";
 import { auth } from "../auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
+import { unstable_cache } from "next/cache";
 
 export async function getActiveTimeLog() {
   const session = await auth.api.getSession({
@@ -41,6 +42,7 @@ export async function clockIn() {
   });
 
   revalidatePath("/dashboard");
+  revalidateTag(`user-stats-${session.user.id}`);
   return log;
 }
 
@@ -66,6 +68,7 @@ export async function clockOut() {
   });
 
   revalidatePath("/dashboard");
+  revalidateTag(`user-stats-${session.user.id}`);
   return updatedLog;
 }
 
@@ -110,6 +113,7 @@ export async function adminClockOut(userId: string) {
   });
 
   revalidatePath("/dashboard");
+  revalidateTag(`user-stats-${userId}`);
   return updatedLog;
 }
 
@@ -150,6 +154,7 @@ export async function requestTimeCorrection(data: z.infer<typeof correctionSchem
   // });
 
   revalidatePath("/timesheet");
+  revalidateTag(`user-stats-${session.user.id}`);
   return { success: true };
 }
 
@@ -198,6 +203,7 @@ export async function createManualTimeLog(data: z.infer<typeof manualEntrySchema
   });
 
   revalidatePath("/timesheet");
+  revalidateTag(`user-stats-${session.user.id}`);
   return { success: true };
 }
 
@@ -232,41 +238,50 @@ export async function getTimeStats() {
 
   if (!session) return null;
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return await unstable_cache(
+    async (userId: string) => {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-  // 1. Aggregate Total Duration for Current Month
-  const aggregations = await prisma.timeLog.aggregate({
-    _sum: {
-      duration: true,
-    },
-    where: {
-      userId: session.user.id,
-      startTime: {
-        gte: startOfMonth,
-        lte: endOfMonth,
-      },
-      type: "WORK",
-      // We might filter by status: "APPROVED" in strict systems
-    },
-  });
+      // 1. Aggregate Total Duration for Current Month
+      const aggregations = await prisma.timeLog.aggregate({
+        _sum: {
+          duration: true,
+        },
+        where: {
+          userId,
+          startTime: {
+            gte: startOfMonth,
+            lte: endOfMonth,
+          },
+          type: "WORK",
+          // We might filter by status: "APPROVED" in strict systems
+        },
+      });
 
-  // 2. Count Pending Corrections
-  // We need to join the TimeLog to ensure we only count the user's corrections
-  const pendingCorrections = await prisma.timeCorrection.count({
-    where: {
-      status: "PENDING",
-      timeLog: {
-        userId: session.user.id,
-      },
-    },
-  });
+      // 2. Count Pending Corrections
+      // We need to join the TimeLog to ensure we only count the user's corrections
+      const pendingCorrections = await prisma.timeCorrection.count({
+        where: {
+          status: "PENDING",
+          timeLog: {
+            userId,
+          },
+        },
+      });
 
-  return {
-    totalSeconds: aggregations._sum.duration || 0,
-    pendingCorrections,
-  };
+      return {
+        totalSeconds: aggregations._sum.duration || 0,
+        pendingCorrections,
+      };
+    },
+    [`user-stats-${session.user.id}`],
+    {
+      tags: [`user-stats-${session.user.id}`],
+      revalidate: 3600, // 1 hour
+    }
+  )(session.user.id);
 }
 
 export async function getTimeLogs() {
