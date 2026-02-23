@@ -13,12 +13,12 @@ const addStaffSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
   managerId: z.string().optional().nullable(),
-  position: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),
+  position: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   dateOfBirth: z.string().optional().nullable(),
   dateHired: z.string().optional().nullable(),
-  regularWorkHours: z.coerce.number().default(8.0),
+  regularWorkHours: z.number().min(0),
 });
 
 type AddStaffInput = z.infer<typeof addStaffSchema>;
@@ -46,7 +46,18 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
     formState: { errors },
   } = useForm<AddStaffInput>({
     resolver: zodResolver(addStaffSchema),
-    defaultValues: { role: "EMPLOYEE" as const, managerId: "", regularWorkHours: 8.0 },
+    defaultValues: { 
+      role: "EMPLOYEE", 
+      managerId: null, 
+      regularWorkHours: 8.0,
+      name: "",
+      email: "",
+      position: null,
+      phoneNumber: null,
+      address: null,
+      dateOfBirth: null,
+      dateHired: null,
+    },
   });
 
   const mutation = useMutation({
@@ -64,11 +75,7 @@ export default function AddStaffModal({ isOpen, onClose }: AddStaffModalProps) {
 
   const onSubmit = (data: AddStaffInput) => {
     setError(null);
-    const formattedData = {
-      ...data,
-      managerId: data.managerId === "" ? null : data.managerId
-    };
-    mutation.mutate(formattedData);
+    mutation.mutate(data);
   };
 
   const handleClose = () => {

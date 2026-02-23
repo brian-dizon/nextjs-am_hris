@@ -14,9 +14,9 @@ const addStaffSchema = z.object({
   role: z.enum(["ADMIN", "LEADER", "EMPLOYEE"]),
   managerId: z.string().optional().nullable(),
   // Extended Profile
-  position: z.string().optional(),
-  phoneNumber: z.string().optional(),
-  address: z.string().optional(),
+  position: z.string().optional().nullable(),
+  phoneNumber: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
   dateOfBirth: z.string().optional().nullable(),
   dateHired: z.string().optional().nullable(),
   regularWorkHours: z.coerce.number().default(8.0),
@@ -56,13 +56,13 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
 
   try {
     // 1. Create User via Admin API
-    const result_auth = await auth.api.createUser({
+    const result_auth = await (auth.api as any).admin.createUser({
       headers: await headers(),
       body: {
         email: result.data.email,
         password: tempPassword,
         name: result.data.name,
-        role: result.data.role,
+        role: result.data.role as any,
         data: {
           organizationId: session.user.organizationId,
           requirePasswordChange: true,

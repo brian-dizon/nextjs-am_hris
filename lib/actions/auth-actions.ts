@@ -45,13 +45,15 @@ export async function initializeSystem(data: InitializeSystemInput) {
     orgId = org.id;
 
     // 4. Execution Flow: Create the First User (ADMIN) via Better Auth
-    await auth.api.signUpEmail({
+    await (auth.api as any).signUpEmail({
       body: {
         email: adminEmail,
         password: password,
         name: adminName,
-        organizationId: orgId,
-        role: "ADMIN",
+        data: {
+          organizationId: orgId,
+          role: "ADMIN",
+        },
       },
     });
 
