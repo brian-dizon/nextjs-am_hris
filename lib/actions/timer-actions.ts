@@ -1,16 +1,13 @@
 "use server";
 
 import prisma from "../prisma";
-import { auth } from "../auth";
-import { headers } from "next/headers";
+import { auth, getCachedSession } from "../auth";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
 import { unstable_cache } from "next/cache";
 
 export async function getActiveTimeLog() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) return null;
 
@@ -23,9 +20,7 @@ export async function getActiveTimeLog() {
 }
 
 export async function clockIn() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -42,14 +37,12 @@ export async function clockIn() {
   });
 
   revalidatePath("/dashboard");
-  revalidateTag(`user-stats-${session.user.id}`);
+  revalidateTag(`user-stats-${session.user.id}`, {});
   return log;
 }
 
 export async function clockOut() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -68,7 +61,7 @@ export async function clockOut() {
   });
 
   revalidatePath("/dashboard");
-  revalidateTag(`user-stats-${session.user.id}`);
+  revalidateTag(`user-stats-${session.user.id}`, {});
   return updatedLog;
 }
 
@@ -82,9 +75,7 @@ const correctionSchema = z.object({
 });
 
 export async function adminClockOut(userId: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Only admins can force clock out staff.");
@@ -113,14 +104,12 @@ export async function adminClockOut(userId: string) {
   });
 
   revalidatePath("/dashboard");
-  revalidateTag(`user-stats-${userId}`);
+  revalidateTag(`user-stats-${userId}`, {});
   return updatedLog;
 }
 
 export async function requestTimeCorrection(data: z.infer<typeof correctionSchema>) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -154,7 +143,7 @@ export async function requestTimeCorrection(data: z.infer<typeof correctionSchem
   // });
 
   revalidatePath("/timesheet");
-  revalidateTag(`user-stats-${session.user.id}`);
+  revalidateTag(`user-stats-${session.user.id}`, {});
   return { success: true };
 }
 
@@ -165,9 +154,7 @@ const manualEntrySchema = z.object({
 });
 
 export async function createManualTimeLog(data: z.infer<typeof manualEntrySchema>) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -203,14 +190,12 @@ export async function createManualTimeLog(data: z.infer<typeof manualEntrySchema
   });
 
   revalidatePath("/timesheet");
-  revalidateTag(`user-stats-${session.user.id}`);
+  revalidateTag(`user-stats-${session.user.id}`, {});
   return { success: true };
 }
 
 export async function deleteTimeLog(timeLogId: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -232,9 +217,7 @@ export async function deleteTimeLog(timeLogId: string) {
 }
 
 export async function getTimeStats() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) return null;
 
@@ -285,9 +268,7 @@ export async function getTimeStats() {
 }
 
 export async function getTimeLogs() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) return [];
 
@@ -304,9 +285,7 @@ export async function getTimeLogs() {
 }
 
 export async function getOrganizationActiveLogs() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     return [];
@@ -351,9 +330,7 @@ export async function getOrganizationActiveLogs() {
  * Week starts on Monday.
  */
 export async function getWeeklyTimeLogs() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) return [];
 

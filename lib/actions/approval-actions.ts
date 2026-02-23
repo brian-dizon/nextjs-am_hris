@@ -1,17 +1,14 @@
 "use server";
 
 import prisma from "../prisma";
-import { auth } from "../auth";
-import { headers } from "next/headers";
+import { auth, getCachedSession } from "../auth";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { LeaveStatus } from "@/lib/generated/prisma";
 import { createAuditLog } from "../utils/audit-utils";
 import { addDays, isWeekend, startOfDay, addHours, differenceInCalendarDays } from "date-fns";
 
 export async function getPendingApprovals() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     return [];
@@ -131,9 +128,7 @@ export async function getPendingApprovals() {
 }
 
 export async function approveRequest(requestId: string, type: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     throw new Error("Unauthorized");
@@ -225,7 +220,7 @@ export async function approveRequest(requestId: string, type: string) {
     revalidatePath("/approvals");
     revalidatePath("/profile"); // To update user's leave balance display
     revalidatePath("/dashboard"); // For leave quick actions
-    revalidateTag(`pending-approvals-${session.user.organizationId}`);
+    revalidateTag(`pending-approvals-${session.user.organizationId}`, {});
     return { success: true };
   }
 
@@ -249,7 +244,7 @@ export async function approveRequest(requestId: string, type: string) {
 
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
-    revalidateTag(`pending-approvals-${session.user.organizationId}`);
+    revalidateTag(`pending-approvals-${session.user.organizationId}`, {});
     return { success: true };
   }
 
@@ -309,7 +304,7 @@ export async function approveRequest(requestId: string, type: string) {
 
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
-    revalidateTag(`pending-approvals-${session.user.organizationId}`);
+    revalidateTag(`pending-approvals-${session.user.organizationId}`, {});
     return { success: true };
   }
 
@@ -317,9 +312,7 @@ export async function approveRequest(requestId: string, type: string) {
 }
 
 export async function rejectRequest(requestId: string, type: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     throw new Error("Unauthorized");
@@ -363,7 +356,7 @@ export async function rejectRequest(requestId: string, type: string) {
       });
     
       revalidatePath("/approvals");
-      revalidateTag(`pending-approvals-${session.user.organizationId}`);
+      revalidateTag(`pending-approvals-${session.user.organizationId}`, {});
       return { success: true };
     }
     

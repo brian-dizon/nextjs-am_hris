@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "../prisma";
-import { auth } from "../auth";
+import { auth, getCachedSession } from "../auth";
 import { headers } from "next/headers";
 import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
 import { z } from "zod";
@@ -41,9 +41,7 @@ const updateStaffSchema = z.object({
 });
 
 export async function addStaff(data: z.infer<typeof addStaffSchema>) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Only admins can add staff members.");
@@ -101,7 +99,7 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
     });
 
     revalidatePath("/directory");
-    revalidateTag(`org-staff-${session.user.organizationId}`);
+    revalidateTag(`org-staff-${session.user.organizationId}`, {});
     return { success: true, tempPassword };
   } catch (error: any) {
     console.error("Add staff error:", error);
@@ -110,9 +108,7 @@ export async function addStaff(data: z.infer<typeof addStaffSchema>) {
 }
 
 export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Only admins can update staff members.");
@@ -187,7 +183,7 @@ export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
     revalidatePath("/directory");
     revalidatePath("/dashboard");
     revalidatePath("/profile");
-    revalidateTag(`org-staff-${session.user.organizationId}`);
+    revalidateTag(`org-staff-${session.user.organizationId}`, {});
     return { success: true };
   } catch (error: any) {
     console.error("Update staff error:", error);
@@ -196,9 +192,7 @@ export async function updateStaff(data: z.infer<typeof updateStaffSchema>) {
 }
 
 export async function getStaffList() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     return [];
@@ -242,9 +236,7 @@ export async function getStaffList() {
 }
 
 export async function getManagers() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) return [];
 
@@ -280,9 +272,7 @@ export async function getManagers() {
  * Professional administrative password reset.
  */
 export async function resetStaffPassword(userId: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || (session.user.role !== "ADMIN" && session.user.role !== "LEADER")) {
     throw new Error("Unauthorized password reset.");
@@ -311,7 +301,7 @@ export async function resetStaffPassword(userId: string) {
     });
 
     revalidatePath("/directory");
-    revalidateTag(`org-staff-${session.user.organizationId}`);
+    revalidateTag(`org-staff-${session.user.organizationId}`, {});
     return { success: true, tempPassword };
   } catch (error: any) {
     console.error("Reset password error:", error);
@@ -320,9 +310,7 @@ export async function resetStaffPassword(userId: string) {
 }
 
 export async function deleteStaff(userId: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session || session.user.role !== "ADMIN") {
     throw new Error("Only admins can delete staff members.");
@@ -338,7 +326,7 @@ export async function deleteStaff(userId: string) {
     });
 
     revalidatePath("/directory");
-    revalidateTag(`org-staff-${session.user.organizationId}`);
+    revalidateTag(`org-staff-${session.user.organizationId}`, {});
     return { success: true };
   } catch (error) {
     console.error("Delete staff error:", error);
@@ -347,9 +335,7 @@ export async function deleteStaff(userId: string) {
 }
 
 export async function completeOnboarding(passwordInput: string) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
@@ -382,9 +368,7 @@ export async function completeOnboarding(passwordInput: string) {
 }
 
 export async function clearOnboardingFlag() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await getCachedSession();
 
   if (!session) throw new Error("Unauthorized");
 
